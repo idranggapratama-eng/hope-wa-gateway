@@ -1,0 +1,19 @@
+{
+  "name": "hope-whatsapp-gateway",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "24/7 WhatsApp Gateway & Pairing Engine for Hope Sparepart",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.9",
+    "axios": "^1.7.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "pino": "^9.5.0",
+    "qrcode": "^1.5.4"
+  }
+}
