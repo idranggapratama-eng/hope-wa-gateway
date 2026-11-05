@@ -346,6 +346,57 @@ app.post('/api/session/send', async (req, res) => {
 });
 
 /**
+ * POST /api/session/story
+ * Post product image/caption to WhatsApp Status / Story
+ */
+app.post('/api/session/story', async (req, res) => {
+  const { sessionId, imageUrl, imageBase64, caption } = req.body;
+  if (!sessionId) {
+    return res.status(400).json({ success: false, message: 'sessionId is required' });
+  }
+
+  const session = activeSessions.get(sessionId);
+  if (!session || session.status !== 'connected' || !session.sock) {
+    return res.status(400).json({ success: false, message: 'WhatsApp session is not connected' });
+  }
+
+  try {
+    let result = null;
+    const statusJid = 'status@broadcast';
+
+    if (imageUrl) {
+      result = await session.sock.sendMessage(statusJid, {
+        image: { url: imageUrl },
+        caption: caption || ''
+      });
+    } else if (imageBase64) {
+      const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+      result = await session.sock.sendMessage(statusJid, {
+        image: buffer,
+        caption: caption || ''
+      });
+    } else if (caption) {
+      result = await session.sock.sendMessage(statusJid, {
+        text: caption
+      });
+    } else {
+      return res.status(400).json({ success: false, message: 'imageUrl, imageBase64, or caption required' });
+    }
+
+    return res.json({
+      success: true,
+      messageId: result?.key?.id,
+      status: 'posted_to_story',
+      caption
+    });
+  } catch (err) {
+    console.error(`[Session: ${sessionId}] Story post error:`, err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
  * POST /api/session/read
  * Mark chat as read
  */
@@ -398,9 +449,24 @@ fs.readdir(SESSIONS_DIR, (err, files) => {
   }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`===============================================`);
-  console.log(`  HOPE WHATSAPP GATEWAY (BAILEYS 24/7) ACTIVE  `);
-  console.log(`  Listening on port: ${PORT}                  `);
-  console.log(`===============================================`);
-});
+const SOCK_PATH = process.env.SOCKET_PATH || (process.platform === 'linux' ? '/home/u623463806/wa_gateway.sock' : null);
+
+if (SOCK_PATH) {
+  if (fs.existsSync(SOCK_PATH)) {
+    try { fs.unlinkSync(SOCK_PATH); } catch (e) {}
+  }
+  app.listen(SOCK_PATH, () => {
+    try { fs.chmodSync(SOCK_PATH, 0o777); } catch (e) {}
+    console.log(`===============================================`);
+    console.log(`  HOPE WHATSAPP GATEWAY (BAILEYS 24/7) ACTIVE  `);
+    console.log(`  Listening on Unix Socket: ${SOCK_PATH}       `);
+    console.log(`===============================================`);
+  });
+} else {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`===============================================`);
+    console.log(`  HOPE WHATSAPP GATEWAY (BAILEYS 24/7) ACTIVE  `);
+    console.log(`  Listening on port: ${PORT}                  `);
+    console.log(`===============================================`);
+  });
+}
